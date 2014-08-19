@@ -17,13 +17,6 @@ type Rev struct {
 	Rev string `json:"rev"`
 }
 
-type NormalChanges struct{
-    Results []DocRev    `json:"results"`
-    LastSeq interface{} `json:"last_seq"`
-    Pending uint64 `json:"pending"`
-}
-
-
 type ChangesArgs struct {
 	Since       interface{}     `urlencode:"since"`
 	Limit       uint64          `urlencode:"limit"`
@@ -46,36 +39,37 @@ type Changes struct {
 	LastSeq interface{} `json:"last_seq"`
 }
 
-
-// Returns the normal changes feed. The output is different the continuous changes, it is one massive Json giving all *existing* changes from inception of the database or from the sequence number given in the ChangesArgs.  
-func (db *CouchDB) Changes(args ChangesArgs,returnChange * NormalChanges) ( error) {
+// Returns the normal changes feed. The output is different the continuous changes,
+// it is one massive Json giving all *existing* changes from inception of the
+// database or from the sequence number given in the ChangesArgs.
+func (db *CouchDB) Changes(args ChangesArgs) (*Changes, error) {
 	if args.Feed == "continuous" {
-		return fmt.Errorf("Changes is for normal or long-polling, try ContinuousChanges instead")
+		return nil, fmt.Errorf("Changes is for normal or long-polling, try ContinuousChanges instead")
 	}
 
 	argsstring, err := args.Encode()
 	if err != nil {
-		return err
+		return nil, err
 	}
 	req, err := db.createRequest("GET", "_changes", argsstring, nil)
 	if err != nil {
-		return  err
+		return nil, err
 	}
 	r, err := client.Do(req)
 	if err != nil {
-		return  err
+		return nil, err
 	}
-    fmt.Println("incc3")
 	if r.StatusCode != 200 {
 		r.Body.Close()
-		return responseToCouchError(r)
+		return nil, responseToCouchError(r)
 	}
+        changes := &Changes{}
 	j := json.NewDecoder(r.Body)
-    err = j.Decode(returnChange)
-    if err != nil{
-        return err
-    }
-	return nil
+	err = j.Decode(changes)
+	if err != nil {
+		return nil, err
+	}
+	return changes, nil
 }
 
 // ContinuousChanges starts a feed=continuous view of the _changes feed for the DB.
@@ -84,7 +78,7 @@ func (db *CouchDB) Changes(args ChangesArgs,returnChange * NormalChanges) ( erro
 // will spit out the appropriate error
 func (db *CouchDB) ContinuousChanges(args ChangesArgs) (<-chan *DocRev, <-chan error) {
 	c := make(chan *DocRev)
-	e := make(chan error,1)
+	e := make(chan error, 1)
 	args.Feed = "continuous"
 	argsstring, err := args.Encode()
 	if err != nil {
