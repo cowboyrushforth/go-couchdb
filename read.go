@@ -6,7 +6,7 @@ import (
 
 // Does a "raw" GET, returning an io.Reader that can be used to parse the returned data yourself.
 func (db *CouchDB) GetRaw(path, query string) (io.Reader, error) {
-	req, err := db.createRequest("GET", escape_docid(path), query, nil)
+	req, err := db.createRequest("GET", path, query, nil)
 	if err != nil {
 		return nil, err
 	}
